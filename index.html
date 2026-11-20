@@ -1,0 +1,680 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#050910">
+<title>MIDI COMMANDER</title>
+
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;min-height:100%;overflow-x:hidden}
+body{
+ padding:8px;background:#050910;color:white;
+ font-family:Arial,sans-serif;
+}
+button,input,select{font:inherit;max-width:100%}
+header,.section{
+ width:100%;min-width:0;
+ background:#101b2b;border:1px solid #168dff;
+ border-radius:12px;padding:12px;margin-bottom:10px;
+}
+header{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+h1{font-size:clamp(20px,5vw,27px);color:#00cfff;margin:0}
+h2{font-size:18px;color:#00cfff;margin:0 0 12px}
+.rhythm-section{border-color:#b347ee}
+.rhythm-section h2{color:#df9aff}
+.info{font-size:11px;color:#a7bfd8;margin-top:6px}
+.status{font-size:12px;color:#00ed8a}
+.grid{
+ display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+ gap:6px;width:100%;
+}
+.pad{
+ width:100%;min-width:0;min-height:62px;
+ padding:5px 2px;
+ background:linear-gradient(145deg,#263b55,#091321);
+ border:1px solid #168cff;border-radius:9px;
+ color:white;font-weight:bold;
+ font-size:clamp(11px,2.7vw,15px);
+ touch-action:manipulation;
+ user-select:none;-webkit-user-select:none;
+ overflow-wrap:anywhere;
+}
+.pad small{
+ display:block;color:#a9ddff;font-size:10px;
+ margin-top:5px;font-weight:normal;
+}
+.pad.active{background:#0069bd;box-shadow:0 0 10px #00baff}
+.rhythm-pad{border-color:#a34cff}
+.rhythm-pad small{color:#e3baff}
+.rhythm-pad.active{background:#8523ae;box-shadow:0 0 10px #d45aff}
+
+.action{
+ border:0;border-radius:10px;padding:13px 8px;
+ color:white;font-weight:bold;width:100%;
+ cursor:pointer;user-select:none;
+}
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.control-box{background:#172438;padding:10px;border-radius:10px;min-width:0}
+.play{background:linear-gradient(135deg,#00c76a,#007d39)}
+.stop{background:linear-gradient(135deg,#ff3349,#a90019)}
+.connect{background:#087cce}
+.disconnect{background:#555}
+.save{background:#7440d4}
+
+/* Large PLAY and STOP buttons */
+.transport{
+ display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+ gap:12px;
+}
+.transport button{
+ min-height:94px;font-size:clamp(19px,5vw,25px);
+ border-radius:13px;
+ box-shadow:0 3px 12px #0008;
+}
+.transport .play{border:1px solid #00ff80}
+.transport .stop{border:1px solid #ff6575}
+
+input,select{
+ display:block;width:100%;min-width:0;
+ padding:11px;background:#172438;color:white;
+ border:1px solid #58718e;border-radius:8px;
+ margin:6px 0 13px;
+}
+label{display:block;font-size:13px;color:#c9dfff}
+.tempo{display:flex;align-items:center;gap:9px}
+.tempo button{
+ flex-shrink:0;width:40px;height:40px;
+ border:0;border-radius:50%;
+ background:#0875d6;color:white;font-size:23px;
+}
+.tempo input{flex:1;min-width:0;margin:5px}
+.tempo strong{min-width:40px;text-align:center;font-size:20px}
+
+.modal{
+ display:none;position:fixed;inset:0;
+ background:#000d;z-index:100;
+ align-items:center;justify-content:center;padding:12px;
+}
+.modal-box{
+ background:#101d30;border:1px solid #08aaff;
+ border-radius:14px;padding:17px;
+ width:100%;max-width:430px;
+ max-height:88vh;max-height:88dvh;overflow-y:auto;
+}
+.modal-box h2{color:#00cfff}
+.modal-buttons{display:flex;gap:8px}
+.modal-buttons button{flex:1}
+
+@media(max-width:350px){
+ body{padding:5px}
+ header,.section{padding:8px}
+ .grid{gap:4px}
+ .pad{min-height:54px;font-size:10px}
+ .pad small{font-size:9px}
+ .transport button{min-height:80px;font-size:19px}
+}
+@media(min-width:650px){
+ body{max-width:950px;margin:auto;padding:12px}
+}
+</style>
+</head>
+
+<body>
+
+<header>
+ <div>
+  <h1>🎹 MIDI COMMANDER</h1>
+  <div class="info">Professional MIDI Controller</div>
+ </div>
+ <div id="status" class="status">● Disconnected</div>
+</header>
+
+<!-- TONES -->
+<div class="section">
+ <h2>🎹 TONES – 15</h2>
+ <div class="grid" id="tones"></div>
+ <div class="info">Short Press: Program Change | Long Press: Edit</div>
+</div>
+
+<!-- RHYTHMS -->
+<div class="section rhythm-section">
+ <h2>🥁 RHYTHMS – 15</h2>
+ <div class="grid" id="rhythms"></div>
+ <div class="info">Short Press: Play Note | Long Press: Edit</div>
+</div>
+
+<!-- MIDI CONNECTION -->
+<div class="section">
+ <h2>🔌 MIDI CONNECTION</h2>
+ <label>MIDI Device</label>
+ <select id="device">
+  <option value="">Select Device</option>
+ </select>
+ <div class="controls">
+  <button class="action connect" onclick="connectMIDI()">CONNECT</button>
+  <button class="action disconnect" onclick="disconnectMIDI()">DISCONNECT</button>
+ </div>
+ <label>MIDI Channel</label>
+ <select id="channel"></select>
+</div>
+
+<!-- TEMPO -->
+<div class="section">
+ <h2>⏱ TEMPO CONTROL</h2>
+ <div class="tempo">
+  <button onclick="changeTempo(-1)">−</button>
+  <strong id="bpm">120</strong>
+  <button onclick="changeTempo(1)">+</button>
+ </div>
+ <input id="tempo" type="range" min="40" max="240" value="120">
+</div>
+
+<!-- BIG PLAY STOP -->
+<div class="section">
+ <h2>▶ PLAY / STOP CONTROLLER</h2>
+ <div class="transport">
+  <button class="action play" id="playButton">▶ PLAY</button>
+  <button class="action stop" id="stopButton">■ STOP</button>
+ </div>
+ <div class="info">Tap to operate | Hold to edit separate Note settings</div>
+</div>
+
+<!-- SAVE -->
+<div class="section">
+ <h2>💾 APP SETTINGS</h2>
+ <button class="action save" onclick="saveAll()">SAVE ALL SETTINGS</button>
+ <div class="info" id="savedMessage">Settings saved automatically</div>
+</div>
+
+<!-- EDIT WINDOW -->
+<div class="modal" id="modal">
+ <div class="modal-box">
+  <h2 id="editTitle">EDIT SETTINGS</h2>
+  <div id="editFields"></div>
+  <div class="modal-buttons">
+   <button class="action save" onclick="saveEdit()">SAVE</button>
+   <button class="action disconnect" onclick="closeEdit()">CANCEL</button>
+  </div>
+ </div>
+</div>
+
+<script>
+
+// 52 custom note names: A, #A, B, #B ... Z, #Z
+const NOTE_NAMES=[];
+for(const letter of "ABCDEFGHIJKLMNOPQRSTUVWXYZ"){
+ NOTE_NAMES.push(letter);
+ NOTE_NAMES.push("#"+letter);
+}
+
+const defaults={
+ tones:Array.from({length:15},(_,i)=>({
+  name:"Tone "+(i+1),program:i
+ })),
+
+ rhythms:Array.from({length:15},(_,i)=>({
+  name:"Rhythm "+(i+1),
+  note:i%52,
+  octave:4,
+  velocity:100
+ })),
+
+ play:{
+  name:"PLAY",note:0,octave:4,velocity:100
+ },
+
+ stop:{
+  name:"STOP",note:2,octave:4,velocity:100
+ },
+
+ bpm:120,
+ channel:0
+};
+
+let data=defaults;
+let midi=null;
+let output=null;
+let editTarget=null;
+let clockTimer=null;
+let clockRunning=false;
+let heldNotes=new Set();
+
+// LOAD SAVED SETTINGS
+try{
+ const old=JSON.parse(localStorage.getItem("midiCommander")||"null");
+ if(old){
+  data={
+   ...defaults,...old,
+   tones:Array.isArray(old.tones)&&old.tones.length===15?
+    old.tones:defaults.tones,
+   rhythms:Array.isArray(old.rhythms)&&old.rhythms.length===15?
+    old.rhythms:defaults.rhythms,
+   play:old.play||defaults.play,
+   stop:old.stop||defaults.stop
+  };
+ }
+}catch(e){}
+
+// SAVE
+function saveAll(){
+ data.bpm=Number(document.getElementById("tempo").value);
+ data.channel=Number(document.getElementById("channel").value);
+
+ try{
+  localStorage.setItem("midiCommander",JSON.stringify(data));
+  document.getElementById("savedMessage").textContent="✓ Settings saved";
+ }catch(e){
+  document.getElementById("savedMessage").textContent="Save failed";
+ }
+}
+
+function clamp(v,min,max){
+ const n=Number(v);
+ return Math.max(min,Math.min(max,Number.isFinite(n)?n:min));
+}
+
+function escapeHTML(s){
+ return String(s).replace(/[&<>"']/g,c=>({
+  "&":"&amp;","<":"&lt;",">":"&gt;",
+  '"':"&quot;","'":"&#39;"
+ })[c]);
+}
+
+// LONG PRESS HANDLER
+function addPressHandlers(element,onTap,onHold){
+ let timer=null;
+ let active=false;
+ let longPressed=false;
+ let pointerId=null;
+
+ element.addEventListener("contextmenu",e=>{
+  e.preventDefault();
+ });
+
+ element.addEventListener("pointerdown",e=>{
+  if(e.button!==undefined && e.button!==0)return;
+
+  active=true;
+  longPressed=false;
+  pointerId=e.pointerId;
+
+  try{
+   element.setPointerCapture(pointerId);
+  }catch(err){}
+
+  timer=setTimeout(()=>{
+   if(active){
+    longPressed=true;
+    onHold();
+   }
+  },700);
+ });
+
+ function finish(e){
+  if(!active)return;
+  if(e && pointerId!==null && e.pointerId!==pointerId)return;
+
+  active=false;
+  clearTimeout(timer);
+
+  if(!longPressed){
+   onTap();
+  }
+ }
+
+ element.addEventListener("pointerup",finish);
+
+ element.addEventListener("pointercancel",()=>{
+  active=false;
+  clearTimeout(timer);
+ });
+
+ element.addEventListener("lostpointercapture",()=>{
+  if(active){
+   active=false;
+   clearTimeout(timer);
+  }
+ });
+}
+
+// DISPLAY
+function render(){
+ const tb=document.getElementById("tones");
+ const rb=document.getElementById("rhythms");
+
+ tb.innerHTML="";
+ rb.innerHTML="";
+
+ data.tones.forEach((t,i)=>{
+  const b=document.createElement("button");
+  b.type="button";
+  b.className="pad";
+
+  b.innerHTML=
+   "🎹 "+(i+1)+
+   "<small>"+escapeHTML(t.name)+
+   "<br>PC: "+(t.program+1)+"</small>";
+
+  addPressHandlers(
+   b,
+   ()=>{
+    sendProgram(t.program);
+    flash(b);
+   },
+   ()=>openEdit("tone",i)
+  );
+
+  tb.appendChild(b);
+ });
+
+ data.rhythms.forEach((r,i)=>{
+  const b=document.createElement("button");
+  b.type="button";
+  b.className="pad rhythm-pad";
+
+  b.innerHTML=
+   "🥁 "+(i+1)+
+   "<small>"+escapeHTML(r.name)+
+   "<br>"+NOTE_NAMES[r.note]+
+   " | Oct "+r.octave+
+   "</small>";
+
+  addPressHandlers(
+   b,
+   ()=>{
+    noteOn(r);
+    flash(b);
+    setTimeout(()=>noteOff(r),180);
+   },
+   ()=>openEdit("rhythm",i)
+  );
+
+  rb.appendChild(b);
+ });
+
+ document.getElementById("tempo").value=data.bpm;
+ document.getElementById("bpm").textContent=data.bpm;
+ document.getElementById("channel").value=data.channel;
+}
+
+function flash(b){
+ b.classList.add("active");
+ setTimeout(()=>b.classList.remove("active"),180);
+}
+
+// NOTE DROPDOWN
+function noteOptions(selected){
+ return NOTE_NAMES.map((name,i)=>
+  `<option value="${i}" ${i===selected?"selected":""}>${name}</option>`
+ ).join("");
+}
+
+function noteFields(item){
+ return `
+  <label>Note – A to Z with Sharp</label>
+  <select id="fNote">
+   ${noteOptions(item.note)}
+  </select>
+
+  <label>Octave (0–8)</label>
+  <input id="fOctave" type="number" min="0" max="8"
+   value="${item.octave}">
+
+  <label>Velocity (1–127)</label>
+  <input id="fVelocity" type="number" min="1" max="127"
+   value="${item.velocity}">
+ `;
+}
+
+// EDIT
+function openEdit(type,index=null){
+ editTarget={type,index};
+
+ const item=type==="tone"?data.tones[index]:
+  type==="rhythm"?data.rhythms[index]:data[type];
+
+ document.getElementById("editTitle").textContent=
+  type==="tone"?"🎹 TONE "+(index+1):
+  type==="rhythm"?"🥁 RHYTHM "+(index+1):
+  type.toUpperCase()+" SETTINGS";
+
+ let html=`
+  <label>Custom Name</label>
+  <input id="fName" maxlength="30"
+   value="${escapeHTML(item.name)}">
+ `;
+
+ if(type==="tone"){
+  html+=`
+   <label>Program Change (1–128)</label>
+   <input id="fProgram" type="number" min="1" max="128"
+    value="${item.program+1}">
+  `;
+ }else{
+  html+=noteFields(item);
+ }
+
+ document.getElementById("editFields").innerHTML=html;
+ document.getElementById("modal").style.display="flex";
+}
+
+function saveEdit(){
+ if(!editTarget)return;
+
+ const {type,index}=editTarget;
+
+ const item=type==="tone"?data.tones[index]:
+  type==="rhythm"?data.rhythms[index]:data[type];
+
+ item.name=document.getElementById("fName").value.trim()||item.name;
+
+ if(type==="tone"){
+  item.program=
+   clamp(document.getElementById("fProgram").value,1,128)-1;
+ }else{
+  item.note=clamp(document.getElementById("fNote").value,0,51);
+  item.octave=clamp(document.getElementById("fOctave").value,0,8);
+  item.velocity=clamp(document.getElementById("fVelocity").value,1,127);
+ }
+
+ saveAll();
+ closeEdit();
+ render();
+}
+
+function closeEdit(){
+ document.getElementById("modal").style.display="none";
+ editTarget=null;
+}
+
+// CUSTOM NOTE MAPPING
+// A=0, #A=1, B=2, #B=3 ... Z=50, #Z=51
+// Octave adds 12 semitones.
+// Final MIDI note is limited to 0–127.
+function noteNumber(item){
+ return clamp(item.octave*12+item.note,0,127);
+}
+
+// MIDI OUTPUT
+function send(bytes){
+ if(output){
+  try{output.send(bytes)}catch(e){}
+ }
+}
+
+function sendProgram(program){
+ send([0xC0+data.channel,clamp(program,0,127)]);
+}
+
+function noteOn(item){
+ const n=noteNumber(item);
+ send([0x90+data.channel,n,item.velocity]);
+ heldNotes.add(n);
+}
+
+function noteOff(item){
+ const n=noteNumber(item);
+ if(heldNotes.has(n)){
+  send([0x80+data.channel,n,0]);
+  heldNotes.delete(n);
+ }
+}
+
+// PLAY
+function playAction(){
+ noteOn(data.play);
+ startClock();
+}
+
+// STOP
+function stopAction(){
+ stopClock();
+
+ for(const n of heldNotes){
+  send([0x80+data.channel,n,0]);
+ }
+ heldNotes.clear();
+
+ // Send the separately configured STOP note briefly
+ noteOn(data.stop);
+ setTimeout(()=>noteOff(data.stop),120);
+}
+
+// BIG PLAY AND STOP BUTTONS
+addPressHandlers(
+ document.getElementById("playButton"),
+ playAction,
+ ()=>openEdit("play")
+);
+
+addPressHandlers(
+ document.getElementById("stopButton"),
+ stopAction,
+ ()=>openEdit("stop")
+);
+
+// TEMPO
+document.getElementById("tempo").addEventListener("input",e=>{
+ data.bpm=clamp(e.target.value,40,240);
+ document.getElementById("bpm").textContent=data.bpm;
+ saveAll();
+
+ if(clockRunning)startClock();
+});
+
+function changeTempo(v){
+ data.bpm=clamp(data.bpm+v,40,240);
+ document.getElementById("tempo").value=data.bpm;
+ document.getElementById("bpm").textContent=data.bpm;
+ saveAll();
+
+ if(clockRunning)startClock();
+}
+
+// MIDI CLOCK
+function startClock(){
+ stopClock();
+ clockRunning=true;
+
+ if(output){
+  send([0xFA]);
+  clockTimer=setInterval(()=>{
+   send([0xF8]);
+  },60000/(data.bpm*24));
+ }
+}
+
+function stopClock(){
+ if(clockTimer)clearInterval(clockTimer);
+ clockTimer=null;
+
+ if(clockRunning)send([0xFC]);
+ clockRunning=false;
+}
+
+// MIDI CONNECTION
+async function connectMIDI(){
+ if(!navigator.requestMIDIAccess){
+  alert("Web MIDI not supported in this browser. Native Android MIDI integration may be required.");
+  return;
+ }
+
+ try{
+  midi=await navigator.requestMIDIAccess({sysex:false});
+  updateDevices();
+  midi.onstatechange=updateDevices;
+
+  document.getElementById("status").textContent="● MIDI Ready";
+ }catch(e){
+  alert("MIDI connection failed: "+e.message);
+ }
+}
+
+function updateDevices(){
+ const select=document.getElementById("device");
+ const previous=output?.id||"";
+
+ select.innerHTML='<option value="">Select Device</option>';
+
+ if(!midi)return;
+
+ for(const d of midi.outputs.values()){
+  const option=document.createElement("option");
+  option.value=d.id;
+  option.textContent=d.name;
+  select.appendChild(option);
+ }
+
+ if(previous)select.value=previous;
+
+ output=midi.outputs.get(select.value)||null;
+
+ if(output){
+  document.getElementById("status").textContent="● MIDI Connected";
+ }
+}
+
+document.getElementById("device").addEventListener("change",e=>{
+ output=midi?.outputs.get(e.target.value)||null;
+
+ document.getElementById("status").textContent=
+  output?"● MIDI Connected":"● MIDI Ready";
+});
+
+function disconnectMIDI(){
+ stopClock();
+
+ if(output){
+  for(let n=0;n<128;n++){
+   send([0x80+data.channel,n,0]);
+  }
+ }
+
+ output=null;
+ heldNotes.clear();
+
+ document.getElementById("device").value="";
+ document.getElementById("status").textContent="● Disconnected";
+}
+
+// CHANNEL OPTIONS
+const channelSelect=document.getElementById("channel");
+
+for(let i=1;i<=16;i++){
+ const option=document.createElement("option");
+ option.value=i-1;
+ option.textContent="Channel "+i;
+ channelSelect.appendChild(option);
+}
+
+channelSelect.value=data.channel;
+
+// START
+render();
+
+</script>
+</body>
+</html>
